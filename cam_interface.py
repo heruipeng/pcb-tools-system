@@ -515,15 +515,76 @@ class CAM:
 # ═══════════════════════════════════════════
 
 if __name__ == '__main__':
-    import json
+    """
+    使用示例：
 
-    if not CAM_EDIR:
-        print("❌ 未检测到 Genesis 或 InCAMPro 环境")
-        print("   请确保在 Genesis/InCAMPro 中运行，或设置环境变量:")
-        print("   Genesis:  GENESIS_EDIR=/genesis/e97")
-        print("   InCAMPro: INCAM_PRODUCT=/incam/e97")
+    # 方式1: Gateway 模式（外部命令行/服务器调用）
+    python cam_interface.py --job MY-JOB
+
+    # 方式2: 指定 PID 连接
+    python cam_interface.py --pid 5236 --job MY-JOB
+
+    # 方式3: 在 Genesis/InCAMPro 内部运行时自动嵌入式模式
+    直接在 CAM 软件的 Script 面板中运行此文件即可
+    """
+
+    # 自动检测运行环境
+    # Genesis 内部运行时会设置 GENESIS_TMP，外部运行时没有
+    is_inside_cam = bool(os.environ.get('GENESIS_TMP') or os.environ.get('INCAM_PRODUCT'))
+
+    if '--pid' in sys.argv:
+        # Gateway 模式：指定 PID
+        pid_idx = sys.argv.index('--pid')
+        pid = int(sys.argv[pid_idx + 1])
+        job = sys.argv[sys.argv.index('--job') + 1] if '--job' in sys.argv else None
+        print(f'🔗 Gateway 模式 → PID:{pid}')
+        cam = CAM(embedded=False, pid=pid, job=job)
+        print(f'   用户: {cam.get_user()}')
+        print(f'   料号列表: {cam.get_job_list()[:5]}...')
+
+    elif '--job' in sys.argv and not is_inside_cam:
+        # Gateway 模式：自动发现 PID
+        try:
+            import psutil
+        except ImportError:
+            print('❌ 需要 psutil 库来自动发现进程')
+            print('   pip install psutil')
+            print('   或手动指定 PID: python cam_interface.py --pid <PID> --job <JOB>')
+            sys.exit(1)
+        job_idx = sys.argv.index('--job')
+        job = sys.argv[job_idx + 1]
+
+        # 自动发现 Genesis/InCAMPro 进程
+        gen_pids = []
+        target = 'get.exe' if IS_WINDOWS else 'get'
+        for p in psutil.process_iter(['pid', 'name']):
+            try:
+                if p.info['name'] and target in p.info['name'].lower():
+                    gen_pids.append(p.info['pid'])
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
+        if not gen_pids:
+            print(f'❌ 未找到运行中的 {CAM_SOFTWARE} 进程')
+            print('   请确保 Genesis/InCAMPro 已启动并打开了料号')
+            sys.exit(1)
+
+        pid = gen_pids[0]
+        print(f'🔗 Gateway 模式 → 自动发现 PID:{pid} (共 {len(gen_pids)} 个进程)')
+        cam = CAM(embedded=False, pid=pid, job=job)
+        print(f'   用户: {cam.get_user()}')
+        print(f'   料号: {job}')
+
+    elif is_inside_cam:
+        # 嵌入式模式（在 CAM 内部运行）
+        print(f'📌 嵌入式模式 → {CAM_SOFTWARE}')
+        cam = CAM(embedded=True)
+        print(cam.get_user())
+
+    else:
+        print(f'❌ 未检测到 {CAM_SOFTWARE} 环境')
+        print('   用法:')
+        print('   python cam_interface.py --job JOB-NAME       # Gateway 自动连接')
+        print('   python cam_interface.py --pid 5236 --job JOB  # Gateway 指定PID')
+        print('   或在 Genesis/InCAMPro 内部直接运行（嵌入式模式）')
         sys.exit(1)
-
-    print(f"✅ {CAM_SOFTWARE} 接口就绪")
-    print(f"   EDIR: {CAM_EDIR}")
-    print(f"   模式: {'嵌入式' if 'embedded' in sys.argv else 'Gateway'}")
