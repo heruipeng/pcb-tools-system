@@ -696,7 +696,9 @@ class CAM:
         """检测层中是否有物体（True = 有内容）"""
         job = job or self.job
         step = step or self.step
-        lines = self.INFO(f'-t layer -e {job}/{step}/{layer} -d features')
+        lines = self.INFO(
+            f'-t layer -e {job}/{step}/{layer} -m display -d FEATURES'
+        )
         # 空层只有一行 "### Layer - xxx features data ###"
         return len(lines) > 1
 

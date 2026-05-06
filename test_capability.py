@@ -370,13 +370,16 @@ def main():
     # ── 第 8 步：验证 ──
     print(f'\n[8] 最终验证')
     try:
-        # 切回当前 Step 的 Matrix，查询层特征信息
-        info = cam.DO_INFO(
-            f'-t matrix -e {NEW_JOB}/{NEW_STEP}/matrix -d FEATURE'
+        # genCOM_36 格式: -t layer -e {job}/{step}/{layer} -m display -d FEATURES
+        features = cam.INFO(
+            f'-t layer -e {NEW_JOB}/{NEW_STEP}/{NEW_LAYER} -m display -d FEATURES'
         )
-        pk.check('Matrix 特征', True, f'返回: {info}')
+        pk.check('特征数', True, f'返回 {len(features)} 行')
+        if features:
+            for line in features[:5]:
+                print(f'    {line.strip()}')
     except Exception as e:
-        pk.check('Matrix 特征', False, str(e))
+        pk.check('特征查询', False, str(e))
 
     pk.summary()
     print(f'\n{"=" * 64}')
