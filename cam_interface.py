@@ -558,14 +558,26 @@ if __name__ == '__main__':
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
         except ImportError:
-            # 不用 psutil，用系统命令
             if IS_WINDOWS:
-                out = os.popen('tasklist /FI "IMAGENAME eq get.exe" /FO CSV').read()
+                # 方式1: 通过窗口标题解析 PID（精准匹配用户）
+                # 标题格式: Engineering Toolkit 10.08(253622) (rphe@Robot0101 - Windows, pid:22368)
+                current_user = getpass.getuser().lower()
+                out = os.popen('tasklist /V /FI "IMAGENAME eq get.exe" /FO CSV').read()
                 for line in out.split('\n'):
-                    parts = line.replace('"','').split(',')
-                    if len(parts)>=2 and 'get.exe' in parts[0].lower():
-                        try: gen_pids.append(int(parts[1]))
-                        except: pass
+                    # 优先用标题中的 pid: 字段（可按用户过滤）
+                    m = re.search(r'pid:(\d+)', line)
+                    if m and current_user in line.lower():
+                        gen_pids.append(int(m.group(1)))
+                # 标题匹配到的 PID 放前面
+                if gen_pids:
+                    gen_pids = list(dict.fromkeys(gen_pids))  # 去重
+                # 方式2: 后备用 PID 列
+                if not gen_pids:
+                    for line in out.split('\n'):
+                        parts = line.replace('"','').split(',')
+                        if len(parts)>=2 and 'get.exe' in parts[0].lower():
+                            try: gen_pids.append(int(parts[1]))
+                            except: pass
             else:
                 out = os.popen('ps -elf|grep get|grep -v grep').read()
                 for line in out.split('\n'):
@@ -580,7 +592,8 @@ if __name__ == '__main__':
             sys.exit(1)
 
         pid = gen_pids[0]
-        print(f'🔗 Gateway 模式 → 自动发现 PID:{pid} (共 {len(gen_pids)} 个进程)')
+        user = getpass.getuser()
+        print(f'🔗 Gateway 模式 → PID:{pid} (用户:{user}, 共 {len(gen_pids)} 个进程)')
         cam = CAM(embedded=False, pid=pid, job=job)
         print(f'   用户: {cam.get_user()}')
         print(f'   料号: {job}')
