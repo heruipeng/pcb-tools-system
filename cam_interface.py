@@ -501,6 +501,7 @@ class CAM:
             self._io = _EmbeddedCOM()
         elif pid:
             self._io = _GatewayCOM(pid)
+            self._io.connect(pid)  # 自动连接 Gateway
         else:
             raise ValueError("必须指定 embedded=True 或 pid=进程号")
 
@@ -545,6 +546,14 @@ class CAM:
         )
 
     # ─── 资料/Job 操作 ───
+
+    def new_job(self, name, database='database', customer='', notes=''):
+        """创建新料号"""
+        self.job = name
+        return self._io.COM(
+            f'new_job,name={name},db={database},'
+            f'customer={customer},notes={notes}'
+        )
 
     def open_job(self, job, database='database'):
         self.job = job
