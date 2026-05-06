@@ -357,18 +357,39 @@ def main():
         except Exception:
             pass
 
-    pk.check('添加 PAD', pad_ok)
+    pk.check('添加 PAD (公制)', pad_ok)
 
-    # ── 第 7 步：保存 ──
-    print(f'\n[7] 保存')
+    # ── 第 7 步：切换英制再添加 PAD ──
+    print(f'\n[7] 切换英制 (inch/mil) 添加 40mil PAD @ (0.5,0.5) inch')
+    try:
+        cam.change_units('inch')
+        pk.check('切换英制', True, 'units=inch')
+
+        # 英制: 坐标=inch, 符号大小=mil
+        result = cam._io.COM(
+            'add_pad, attributes = no, x = 0.5, y = 0.5,'
+            ' symbol = r40,polarity = positive,'
+            'angle = 0, mirror = no, nx = 1, ny = 1,'
+            'dx = 0, dy = 0, xscale = 1, yscale = 1'
+        )
+        pk.check('添加 PAD (英制)', True,
+                 f'x=0.5inch y=0.5inch symbol=r40 (40mil≈1mm) 返回={result}')
+
+        # 切回公制
+        cam.change_units('mm')
+    except Exception as e:
+        pk.check('英制测试', False, str(e))
+
+    # ── 第 8 步：保存 ──
+    print(f'\n[8] 保存')
     try:
         cam.save_job()
         pk.check('保存料号', True)
     except Exception as e:
         pk.check('保存料号', False, str(e))
 
-    # ── 第 8 步：验证 ──
-    print(f'\n[8] 最终验证')
+    # ── 第 9 步：验证 ──
+    print(f'\n[9] 最终验证')
     try:
         info = cam._io.DO_INFO(
             f'-t feature -e {NEW_JOB}/{NEW_STEP}/{NEW_LAYER} -d COUNT'
