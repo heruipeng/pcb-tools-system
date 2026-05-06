@@ -26,9 +26,9 @@ from cam_interface import CAM, _GatewayCOM, IS_WINDOWS
 NEW_JOB    = 'wukong_test_001'
 NEW_STEP   = 'step'
 NEW_LAYER  = 'sig_top'
-PAD_X      = 10000
-PAD_Y      = 10000
-PAD_SIZE   = 1000
+PAD_X      = 10        # 10mm (Genesis 坐标单位是 mm)
+PAD_Y      = 10        # 10mm
+PAD_SIZE   = 1000      # 1000μm = 1mm (symbol 单位是 μm)
 
 SYMBOL_CANDIDATES = [
     f'r{PAD_SIZE}',
@@ -139,7 +139,7 @@ def main():
     print('=' * 64)
     print('  Genesis 能力验证 — 防呆全流程')
     print(f'  Job: {NEW_JOB} | Step: {NEW_STEP} | Layer: {NEW_LAYER}')
-    print(f'  PAD: {PAD_SIZE}μm @ ({PAD_X}, {PAD_Y}) μm')
+    print(f'  PAD: {PAD_SIZE}μm @ ({PAD_X}, {PAD_Y}) mm')
     print('=' * 64)
 
     pk = PokaYoke()
