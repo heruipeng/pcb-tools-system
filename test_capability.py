@@ -23,7 +23,7 @@ from cam_interface import CAM, _GatewayCOM, IS_WINDOWS
 # 配置（由 AI 自主设定）
 # ═══════════════════════════════════════════
 
-NEW_JOB    = 'WUKONG_TEST_001'
+NEW_JOB    = 'wukong_test_001'
 NEW_LAYER  = 'sig_top'
 PAD_X      = 10000
 PAD_Y      = 10000
