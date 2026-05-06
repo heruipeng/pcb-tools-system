@@ -598,10 +598,12 @@ class CAM:
     def close_step(self):
         return self._io.COM('editor_page_close')
 
-    def create_step(self, step, profile_step=''):
+    def create_step(self, step, database='genesis'):
+        """创建 Step — 与 genCOM_36 CREATE_ENTITY 一致"""
+        self.step = step
         return self._io.COM(
-            f'create_entity,job={self.job},is_fw=no,'
-            f'type=step,name={step},db={self.job}'
+            f'create_entity, job={self.job}, is_fw=no, type=step,'
+            f' name={step}, db={database}, fw_type=form'
         )
 
     def delete_step(self, step):

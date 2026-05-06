@@ -24,6 +24,7 @@ from cam_interface import CAM, _GatewayCOM, IS_WINDOWS
 # ═══════════════════════════════════════════
 
 NEW_JOB    = 'wukong_test_001'
+NEW_STEP   = 'step'
 NEW_LAYER  = 'sig_top'
 PAD_X      = 10000
 PAD_Y      = 10000
@@ -137,7 +138,7 @@ def main():
 
     print('=' * 64)
     print('  Genesis 能力验证 — 防呆全流程')
-    print(f'  料号: {NEW_JOB} | 层: {NEW_LAYER}')
+    print(f'  Job: {NEW_JOB} | Step: {NEW_STEP} | Layer: {NEW_LAYER}')
     print(f'  PAD: {PAD_SIZE}μm @ ({PAD_X}, {PAD_Y}) μm')
     print('=' * 64)
 
@@ -258,8 +259,38 @@ def main():
         except Exception as e:
             pk.fatal('创建料号', False, str(e))
 
-    # ── 第 3 步：层 ──
-    print(f'\n[3] 层: {NEW_LAYER}')
+    # ── 第 3 步：Step ──
+    print(f'\n[3] Step: {NEW_STEP}')
+
+    # 3a. 获取已有 Step 列表
+    try:
+        step_list = cam.get_step_list()
+        pk.check('获取 Step 列表', True,
+                 f'已有 Step: {step_list if step_list else "(空)"}')
+    except Exception as e:
+        step_list = []
+        pk.check('获取 Step 列表 (降级)', False, str(e))
+
+    # 3b. 如果 Step 不存在则创建
+    step_already_exists = NEW_STEP in str(step_list)
+    if not step_already_exists:
+        try:
+            cam.create_step(NEW_STEP)
+            pk.check('创建 Step', True, f'{NEW_STEP}')
+        except Exception as e:
+            pk.fatal('创建 Step', False, str(e))
+    else:
+        print(f'  ℹ️  Step 已存在，跳过创建')
+
+    # 3c. 打开 Step
+    try:
+        cam.open_step(NEW_STEP)
+        pk.check('打开 Step', True)
+    except Exception as e:
+        pk.fatal('打开 Step', False, str(e))
+
+    # ── 第 4 步：层 ──
+    print(f'\n[4] 层: {NEW_LAYER}')
     try:
         layers = cam.get_layer_list()
     except Exception:
@@ -282,8 +313,8 @@ def main():
     except Exception as e:
         pk.check('验证层存在 (降级)', False, str(e))
 
-    # ── 第 4 步：工作层 ──
-    print(f'\n[4] 设置工作层')
+    # ── 第 5 步：工作层 ──
+    print(f'\n[5] 设置工作层')
     try:
         cam.layer_clear()
         cam.affected_layer(NEW_LAYER, affected='yes')
@@ -292,8 +323,8 @@ def main():
     except Exception as e:
         pk.fatal('设置工作层', False, str(e))
 
-    # ── 第 5 步：添加 PAD ──
-    print(f'\n[5] 添加 {PAD_SIZE}μm PAD @ ({PAD_X},{PAD_Y})')
+    # ── 第 6 步：添加 PAD ──
+    print(f'\n[6] 添加 {PAD_SIZE}μm PAD @ ({PAD_X},{PAD_Y})')
     pad_ok = False
     for i, sym in enumerate(SYMBOL_CANDIDATES):
         try:
@@ -328,19 +359,19 @@ def main():
 
     pk.check('添加 PAD', pad_ok)
 
-    # ── 第 6 步：保存 ──
-    print(f'\n[6] 保存')
+    # ── 第 7 步：保存 ──
+    print(f'\n[7] 保存')
     try:
         cam.save_job()
         pk.check('保存料号', True)
     except Exception as e:
         pk.check('保存料号', False, str(e))
 
-    # ── 第 7 步：验证 ──
-    print(f'\n[7] 最终验证')
+    # ── 第 8 步：验证 ──
+    print(f'\n[8] 最终验证')
     try:
         info = cam._io.DO_INFO(
-            f'-t feature -e {NEW_JOB}/step/{NEW_LAYER} -d COUNT'
+            f'-t feature -e {NEW_JOB}/{NEW_STEP}/{NEW_LAYER} -d COUNT'
         )
         count = info.get('gCOUNT', '?')
         pk.check('特征数', True, f'{NEW_LAYER} = {count} 个')
@@ -349,7 +380,7 @@ def main():
 
     pk.summary()
     print(f'\n{"=" * 64}')
-    print(f'  完成 — {NEW_JOB} / {NEW_LAYER} / {PAD_SIZE}μm PAD')
+    print(f'  完成 — {NEW_JOB} / {NEW_STEP} / {NEW_LAYER} / {PAD_SIZE}μm PAD')
     print(f'{"=" * 64}')
 
 
