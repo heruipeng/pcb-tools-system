@@ -496,6 +496,7 @@ class CAM:
         self.job = job
         self.step = step
         self.software = CAM_SOFTWARE
+        self._units = 'mm'  # 跟踪当前单位
 
         if embedded:
             self._io = _EmbeddedCOM()
@@ -512,32 +513,43 @@ class CAM:
         self._io.COM('get_user_name')
         return self._io.COMANS
 
+    def DO_INFO(self, args):
+        """CAM 层 DO_INFO — 自动使用当前单位"""
+        return self.DO_INFO(args, units=self._units)
+
+    def INFO(self, args):
+        """CAM 层 INFO — 自动使用当前单位"""
+        return self.INFO(args, units=self._units)
+
     def get_units(self):
         """获取当前单位"""
         self._io.COM('get_units')
-        return self._io.COMANS
+        result = self._io.COMANS
+        if result in ('mm', 'inch'):
+            self._units = result
+        return result
 
     def get_job_list(self):
         """获取数据库中的料号列表"""
-        info = self._io.DO_INFO('-t job -d NAME')
+        info = self.DO_INFO('-t job -d NAME')
         return info.get('gNAME', [])
 
     def get_step_list(self, job=None):
         """获取料号中所有 Step 列表"""
         job = job or self.job
-        info = self._io.DO_INFO(f'-t matrix -e {job}/matrix -d COL')
+        info = self.DO_INFO(f'-t matrix -e {job}/matrix -d COL')
         return info.get('gCOLstep_name', [])
 
     def get_layer_list(self):
         """获取当前 Step 的所有层 — 从 matrix ROW 查询"""
-        info = self._io.DO_INFO(f'-t matrix -e {self.job}/matrix -d ROW')
+        info = self.DO_INFO(f'-t matrix -e {self.job}/matrix -d ROW')
         return info.get('gROWname', [])
 
     def get_profile_size(self, job=None, step=None):
         """获取成型尺寸"""
         job = job or self.job
         step = step or self.step
-        info = self._io.DO_INFO(
+        info = self.DO_INFO(
             f'-t step -e {job}/{step} -m script -d PROF_LIMITS'
         )
         return (
@@ -575,7 +587,7 @@ class CAM:
 
     def job_exists(self, job):
         """判断 Job 是否存在"""
-        info = self._io.DO_INFO(f'-t job -e {job} -d EXISTS')
+        info = self.DO_INFO(f'-t job -e {job} -d EXISTS')
         return info.get('gEXISTS', 'no') == 'yes'
 
     def export_job(self, job_name, out_path, mode='tar_gzip',
@@ -618,7 +630,7 @@ class CAM:
         """判断 Step 是否存在"""
         job = job or self.job
         step = step or self.step
-        info = self._io.DO_INFO(f'-t step -e {job}/{step} -d EXISTS')
+        info = self.DO_INFO(f'-t step -e {job}/{step} -d EXISTS')
         return info.get('gEXISTS', 'no') == 'yes'
 
     def copy_step(self, source_job, source_step, dest_job, dest_step):
@@ -650,7 +662,7 @@ class CAM:
     def layer_exists(self, layer, job=None, step=None):
         job = job or self.job
         step = step or self.step
-        info = self._io.DO_INFO(f'-t layer -e {job}/{step}/{layer} -d EXISTS')
+        info = self.DO_INFO(f'-t layer -e {job}/{step}/{layer} -d EXISTS')
         return info.get('gEXISTS', 'no') == 'yes'
 
     def layer_clear(self):
@@ -684,13 +696,13 @@ class CAM:
         """检测层中是否有物体（True = 有内容）"""
         job = job or self.job
         step = step or self.step
-        lines = self._io.INFO(f'-t layer -e {job}/{step}/{layer} -d features')
+        lines = self.INFO(f'-t layer -e {job}/{step}/{layer} -d features')
         # 空层只有一行 "### Layer - xxx features data ###"
         return len(lines) > 1
 
     def change_units(self, units):
-        """改变单位（mm/inch）— Genesis 命令是 units"""
-        self.units = units
+        """改变单位（mm/inch）— 同步 self._units 供 DO_INFO 使用"""
+        self._units = units
         return self._io.COM(f'units, type={units}')
 
     # ─── 选择与过滤（参考 genCOM_36 FILTER 系列）───
@@ -887,10 +899,10 @@ class CAM:
         """获取钻孔层的起始/终止层"""
         job = job or self.job
         step = step or self.step
-        start = self._io.DO_INFO(
+        start = self.DO_INFO(
             f'-t layer -e {job}/{step}/{layer} -d DRL_START'
         )
-        end = self._io.DO_INFO(
+        end = self.DO_INFO(
             f'-t layer -e {job}/{step}/{layer} -d DRL_END'
         )
         return start.get('gDRL_START'), end.get('gDRL_END')
@@ -1145,7 +1157,7 @@ class CAM:
     def get_layers_by_type(self, lay_type='all', job=None):
         """按类型获取层列表（参考 genCOM_36 GET_COPPER_LIST）"""
         job = job or self.job
-        info = self._io.DO_INFO(f'-t matrix -e {job}/matrix -d ROW')
+        info = self.DO_INFO(f'-t matrix -e {job}/matrix -d ROW')
         result = []
         names = info.get('gROWname', [])
         contexts = info.get('gROWcontext', [])

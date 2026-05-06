@@ -371,7 +371,7 @@ def main():
     print(f'\n[8] 最终验证')
     try:
         # 切回当前 Step 的 Matrix，查询层特征信息
-        info = cam._io.DO_INFO(
+        info = cam.DO_INFO(
             f'-t matrix -e {NEW_JOB}/{NEW_STEP}/matrix -d FEATURE'
         )
         pk.check('Matrix 特征', True, f'返回: {info}')
