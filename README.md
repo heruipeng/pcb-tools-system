@@ -2,6 +2,8 @@
 
 纯 Python 操作 Gerber 文件 (RS-274X)，不依赖任何 CAM 软件。
 
+同时提供 Genesis / InCAMPro 统一 COM 接口库。
+
 ## 快速开始
 
 ```bash
