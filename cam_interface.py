@@ -1249,6 +1249,7 @@ if __name__ == '__main__':
               f'共 {len(gen_pids)} 个进程)')
         cam = CAM(embedded=False, pid=pid, job=job)
         print(f'   用户: {cam.get_user()}')
+        print(f'   料号列表: {cam._io.DO_INFO("-t root -m script -d JOBS_LIST")}')
         print(f'   料号: {job}')
 
     elif is_inside_cam:
