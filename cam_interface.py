@@ -547,7 +547,7 @@ class CAM:
 
     # ─── 资料/Job 操作 ───
 
-    def new_job(self, name, database='database', customer='', notes=''):
+    def new_job(self, name, database='genesis', customer='', notes=''):
         """创建新料号"""
         self.job = name
         return self._io.COM(
