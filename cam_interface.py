@@ -529,9 +529,13 @@ if __name__ == '__main__':
     """
 
     # 自动检测运行环境
-    # Genesis 内部运行时会设置 GENESIS_TMP，外部运行时没有
-    is_inside_cam = bool(os.environ.get('GENESIS_TMP') or os.environ.get('INCAM_PRODUCT'))
+    # 注意：GENESIS_EDIR 可能是系统全局变量，不代表在 CAM 内运行
+    # GENESIS_TMP 才是 Genesis 启动脚本时设置的临时变量
+    is_inside_cam = bool(
+        os.environ.get('GENESIS_TMP') and not sys.argv[1:]
+    )
 
+    # 模式判断：显式传参 > 环境检测
     if '--pid' in sys.argv:
         # Gateway 模式：指定 PID
         pid_idx = sys.argv.index('--pid')
@@ -540,10 +544,11 @@ if __name__ == '__main__':
         print(f'🔗 Gateway 模式 → PID:{pid}')
         cam = CAM(embedded=False, pid=pid, job=job)
         print(f'   用户: {cam.get_user()}')
-        print(f'   料号列表: {cam.get_job_list()[:5]}...')
+        if job:
+            print(f'   料号: {job}')
 
-    elif '--job' in sys.argv and not is_inside_cam:
-        # Gateway 模式：自动发现 PID
+    elif '--job' in sys.argv:
+        # 显式传 --job → 强制 Gateway 模式
         job = sys.argv[sys.argv.index('--job') + 1]
 
         # 发现 Genesis/InCAMPro 进程 PID
@@ -602,8 +607,8 @@ if __name__ == '__main__':
         print(f'   用户: {cam.get_user()}')
         print(f'   料号: {job}')
 
-    elif is_inside_cam:
-        # 嵌入式模式（在 CAM 内部运行）
+    elif is_inside_cam and len(sys.argv) == 1:
+        # 无参数 + 在 CAM 内部 → 嵌入式模式
         print(f'📌 嵌入式模式 → {CAM_SOFTWARE}')
         cam = CAM(embedded=True)
         print(cam.get_user())
