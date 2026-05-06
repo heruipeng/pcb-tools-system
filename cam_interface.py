@@ -1190,8 +1190,10 @@ if __name__ == '__main__':
         # 强制 Gateway 模式：自动发现 PID
         job = sys.argv[sys.argv.index('--job') + 1]
 
-        # 发现 Genesis/InCAMPro 进程 PID
+        # ── PID 自动发现（快慢双路径）──
         gen_pids = []
+
+        # 快路径: psutil (毫秒级)
         try:
             import psutil
             targets = (['get.exe', 'incampro.exe', 'incam.exe', 'genesis.exe']
@@ -1206,28 +1208,33 @@ if __name__ == '__main__':
                     pass
         except ImportError:
             if IS_WINDOWS:
-                current_user = getpass.getuser().lower()
+                # 快路径: tasklist 直接取 PID（约 0.3 秒，不用 /V）
                 for proc_name in ['get.exe', 'incampro.exe']:
                     out = os.popen(
-                        f'tasklist /V /FI "IMAGENAME eq {proc_name}" /FO CSV'
+                        f'tasklist /FI "IMAGENAME eq {proc_name}" /FO CSV'
                     ).read()
                     for line in out.split('\n'):
-                        m = re.search(r'pid:(\d+)', line)
-                        if m and current_user in line.lower():
-                            gen_pids.append(int(m.group(1)))
-                gen_pids = list(dict.fromkeys(gen_pids))
-                if not gen_pids:
+                        parts = line.replace('"', '').split(',')
+                        if len(parts) >= 2 and proc_name in parts[0].lower():
+                            try:
+                                gen_pids.append(int(parts[1]))
+                            except ValueError:
+                                pass
+
+                # 只有多实例时才用慢路径（/V 标题栏过滤，约 2-3 秒）
+                if len(gen_pids) > 1:
+                    current_user = getpass.getuser().lower()
+                    matched = []
                     for proc_name in ['get.exe', 'incampro.exe']:
                         out = os.popen(
-                            f'tasklist /FI "IMAGENAME eq {proc_name}" /FO CSV'
+                            f'tasklist /V /FI "IMAGENAME eq {proc_name}" /FO CSV'
                         ).read()
                         for line in out.split('\n'):
-                            parts = line.replace('"', '').split(',')
-                            if len(parts) >= 2 and proc_name in parts[0].lower():
-                                try:
-                                    gen_pids.append(int(parts[1]))
-                                except ValueError:
-                                    pass
+                            m = re.search(r'pid:(\d+)', line)
+                            if m and current_user in line.lower():
+                                matched.append(int(m.group(1)))
+                    if matched:
+                        gen_pids = list(dict.fromkeys(matched))
             else:
                 out = os.popen('ps -elf|grep get|grep -v grep').read()
                 for line in out.split('\n'):
