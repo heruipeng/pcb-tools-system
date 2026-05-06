@@ -550,34 +550,38 @@ if __name__ == '__main__':
         gen_pids = []
         try:
             import psutil
-            target = 'get.exe' if IS_WINDOWS else 'get'
+            targets = ['get.exe', 'incampro.exe', 'incam.exe', 'genesis.exe'] if IS_WINDOWS else ['get', 'incampro', 'incam']
             for p in psutil.process_iter(['pid', 'name']):
                 try:
-                    if p.info['name'] and target in p.info['name'].lower():
+                    if p.info['name'] and any(t in p.info['name'].lower() for t in targets):
                         gen_pids.append(p.info['pid'])
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
         except ImportError:
             if IS_WINDOWS:
                 # 方式1: 通过窗口标题解析 PID（精准匹配用户）
-                # 标题格式: Engineering Toolkit 10.08(253622) (rphe@Robot0101 - Windows, pid:22368)
+                # Genesis:    Engineering Toolkit 10.08(xxx) (user@host - Windows, pid:22368)
+                # InCAMPro:   标题栏同样包含 pid:数字
                 current_user = getpass.getuser().lower()
-                out = os.popen('tasklist /V /FI "IMAGENAME eq get.exe" /FO CSV').read()
-                for line in out.split('\n'):
-                    # 优先用标题中的 pid: 字段（可按用户过滤）
-                    m = re.search(r'pid:(\d+)', line)
-                    if m and current_user in line.lower():
-                        gen_pids.append(int(m.group(1)))
-                # 标题匹配到的 PID 放前面
-                if gen_pids:
-                    gen_pids = list(dict.fromkeys(gen_pids))  # 去重
-                # 方式2: 后备用 PID 列
-                if not gen_pids:
+                # 同时搜索 Genesis (get.exe) 和 InCAMPro (incampro.exe)
+                for proc_name in ['get.exe', 'incampro.exe']:
+                    out = os.popen(f'tasklist /V /FI "IMAGENAME eq {proc_name}" /FO CSV').read()
                     for line in out.split('\n'):
-                        parts = line.replace('"','').split(',')
-                        if len(parts)>=2 and 'get.exe' in parts[0].lower():
-                            try: gen_pids.append(int(parts[1]))
-                            except: pass
+                        # 标题栏中提取 pid:
+                        m = re.search(r'pid:(\d+)', line)
+                        if m and current_user in line.lower():
+                            gen_pids.append(int(m.group(1)))
+                # 标题匹配到的 PID 放前面并去重
+                gen_pids = list(dict.fromkeys(gen_pids))
+                # 方式2: 后备用 PID 列（不含标题过滤）
+                if not gen_pids:
+                    for proc_name in ['get.exe', 'incampro.exe']:
+                        out = os.popen(f'tasklist /FI "IMAGENAME eq {proc_name}" /FO CSV').read()
+                        for line in out.split('\n'):
+                            parts = line.replace('"','').split(',')
+                            if len(parts)>=2 and proc_name in parts[0].lower():
+                                try: gen_pids.append(int(parts[1]))
+                                except: pass
             else:
                 out = os.popen('ps -elf|grep get|grep -v grep').read()
                 for line in out.split('\n'):
