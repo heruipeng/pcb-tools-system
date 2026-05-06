@@ -408,14 +408,10 @@ class _GatewayCOM:
         self.COMANS = ''
         self.STATUS = 0
         try:
-            # 检查连接是否有效
-            if self.pid_num in self.PID(self.pid_check_address):
-                self.STATUS = int(self.__in_out(f'COM {args}'))
-                self.COMANS = self.__in_out('COMANS')
-            else:
-                self.STATUS = -3  # 连接丢失
+            self.STATUS = int(self.__in_out(f'COM {args}'))
+            self.COMANS = self.__in_out('COMANS')
         except (ConnectionError, ValueError, OSError):
-            self.STATUS = -2  # 无连接
+            self.STATUS = -2
         return self.STATUS
 
     def PAUSE(self, msg):
