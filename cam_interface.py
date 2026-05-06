@@ -555,9 +555,10 @@ class CAM:
             f'customer={customer},notes={notes}'
         )
 
-    def open_job(self, job, database='database'):
+    def open_job(self, job):
+        """打开料号 — Genesis 只接受 job 参数"""
         self.job = job
-        return self._io.COM(f'open_job,job={job},database={database}')
+        return self._io.COM(f'open_job,job={job}')
 
     def save_job(self):
         return self._io.COM(f'save_job,job={self.job}')
