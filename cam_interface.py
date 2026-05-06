@@ -593,7 +593,10 @@ class CAM:
 
     def open_step(self, step):
         self.step = step
-        return self._io.COM(f'editor_page_open,page=edit,step={step}')
+        return self._io.COM(
+            f'open_entity, job={self.job}, type=step,'
+            f' name={step}, iconic=no'
+        )
 
     def close_step(self):
         return self._io.COM('editor_page_close')
