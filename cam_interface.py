@@ -519,8 +519,8 @@ class CAM:
 
     def get_job_list(self):
         """获取数据库中的料号列表"""
-        info = self._io.DO_INFO('-t root -d JOBS_LIST')
-        return info.get('gJOBS_LIST', [])
+        info = self._io.DO_INFO('-t job -d NAME')
+        return info.get('gNAME', [])
 
     def get_step_list(self, job=None):
         """获取料号中所有 Step 列表"""
@@ -529,8 +529,8 @@ class CAM:
         return info.get('gCOLstep_name', [])
 
     def get_layer_list(self):
-        """获取当前 Step 的所有层"""
-        info = self._io.DO_INFO('layers')
+        """获取当前 Step 的所有层 — 从 matrix ROW 查询"""
+        info = self._io.DO_INFO(f'-t matrix -e {self.job}/matrix -d ROW')
         return info.get('gROWname', [])
 
     def get_profile_size(self, job=None, step=None):
@@ -548,17 +548,17 @@ class CAM:
     # ─── 资料/Job 操作 ───
 
     def new_job(self, name, database='genesis'):
-        """创建新料号 — Genesis 使用 create_entity 命令"""
+        """创建新料号 — 与 genCOM_36 CREATE_ENTITY 一致"""
         self.job = name
         return self._io.COM(
-            f'create_entity,job=,is_fw=no,type=job,'
-            f'name={name},db={database},fw_type=form'
+            f'create_entity, job=, is_fw=no, type=job,'
+            f' name={name}, db={database}, fw_type=form'
         )
 
     def open_job(self, job):
-        """打开料号 — Genesis 只接受 job 参数"""
+        """打开料号 — 与 genCOM_36 OPEN_JOB 一致"""
         self.job = job
-        return self._io.COM(f'open_job,job={job}')
+        return self._io.COM(f'open_job, job={job}')
 
     def save_job(self):
         return self._io.COM(f'save_job,job={self.job}')
@@ -650,23 +650,28 @@ class CAM:
 
     def layer_clear(self):
         self._io.COM('clear_layers')
+        self._io.COM('affected_layer,name=,mode=all,affected=no')
 
-    def work_layer(self, name):
-        """设置工作层"""
-        self.layer_clear()
-        self._io.COM(f'display_layer,name={name},display=yes,number=1')
-        return self._io.COM(f'work_layer,name={name}')
+    def work_layer(self, name, number=1):
+        """设置工作层 — 与 genCOM_36 WORK_LAYER 一致"""
+        if number == 1:
+            self.layer_clear()
+        self._io.COM(f'display_layer,name={name},display=yes,number={number}')
+        if number == 1:
+            return self._io.COM(f'work_layer,name={name}')
+        return 0
 
     def affected_layer(self, name, affected='yes'):
         return self._io.COM(
-            f'affected_layer,name={name},mode=single,affected={affected}'
+            f'affected_layer, name = {name}, mode = single, affected = {affected}'
         )
 
     def copy_layer(self, s_job, s_step, s_layer, d_layer, mode='replace',
                    invert='no'):
-        """复制层（跨 Job/Step）"""
+        """复制层（跨 Job/Step）— 与 genCOM_36 COPY_LAYER 一致"""
         return self._io.COM(
-            f'copy_layer,job={s_job},step={s_step},layer={s_layer},'
+            f'copy_layer,source_job={s_job},source_step={s_step},'
+            f'source_layer={s_layer},dest=layer_name,'
             f'dest_layer={d_layer},mode={mode},invert={invert}'
         )
 
@@ -679,8 +684,9 @@ class CAM:
         return len(lines) > 1
 
     def change_units(self, units):
-        """改变单位（mm/inch）"""
-        return self._io.COM(f'change_units,units={units}')
+        """改变单位（mm/inch）— Genesis 命令是 units"""
+        self.units = units
+        return self._io.COM(f'units, type={units}')
 
     # ─── 选择与过滤（参考 genCOM_36 FILTER 系列）───
 
@@ -688,30 +694,38 @@ class CAM:
         return self._io.COM('filter_reset,filter_name=popup')
 
     def filter_set_pol(self, pol, reset=0):
+        if reset == 1:
+            self.filter_reset()
         return self._io.COM(
-            f'filter_set_pol,filter_name=popup,type={pol},reset={reset}'
+            f'filter_set,filter_name=popup,update_popup=no,polarity={pol}'
         )
 
     def filter_set_typ(self, feat_type, reset=0):
+        if reset == 1:
+            self.filter_reset()
         return self._io.COM(
-            f'filter_set_typ,filter_name=popup,type={feat_type},reset={reset}'
+            f'filter_set,filter_name=popup,update_popup=no,feat_types={feat_type}'
         )
 
     def filter_set_dcode(self, dcode, reset=0):
+        if reset == 1:
+            self.filter_reset()
         return self._io.COM(
-            f'filter_set_dcode,filter_name=popup,dcode={dcode},reset={reset}'
+            f'filter_set,filter_name=popup,update_popup=no,dcode={dcode}'
         )
 
     def filter_set_feat_types(self, feat_types, reset=0):
+        if reset == 1:
+            self.filter_reset()
         return self._io.COM(
-            f'filter_set_feat_types,filter_name=popup,'
-            f'feat_types={feat_types},reset={reset}'
+            f'filter_set,filter_name=popup,update_popup=no,feat_types={feat_types}'
         )
 
     def filter_set_atr_syms(self, atr_set, reset=0):
+        if reset == 1:
+            self.filter_reset()
         return self._io.COM(
-            f'filter_set_atr_syms,filter_name=popup,'
-            f'atr_set={atr_set},reset={reset}'
+            f'filter_atr_set,filter_name=popup,condition=yes,attribute={atr_set}'
         )
 
     def filter_select(self, operation='select'):
@@ -733,12 +747,12 @@ class CAM:
 
     # ─── 编辑操作 ───
 
-    def sel_resize(self, new_width, corner='round'):
-        """修改选中线路的宽度"""
-        return self._io.COM(f'sel_resize,width={new_width},corner={corner}')
+    def sel_resize(self, size):
+        """预大/缩小选中物体 — 与 genCOM_36 SEL_RESIZE 一致"""
+        return self._io.COM(f'sel_resize, size={size}')
 
     def sel_delete(self):
-        return self._io.COM('sel_delete_feat')
+        return self._io.COM('sel_delete')
 
     def sel_delete_atr(self, attributes):
         """删除指定属性的物体"""
@@ -764,10 +778,10 @@ class CAM:
         mode = 'mirror_x' if axis == 'x' else 'mirror_y'
         return self._io.COM(f'sel_transform,mode={mode}')
 
-    def sel_change_sym(self, symbol, mode='replace'):
-        """替换焊盘符号"""
+    def sel_change_sym(self, symbol, reset_angle='no'):
+        """替换焊盘符号 — 与 genCOM_36 SEL_CHANEG_SYM 一致"""
         return self._io.COM(
-            f'sel_change_sym,symbol={symbol},mode={mode}'
+            f'sel_change_sym, symbol={symbol}, reset_angle={reset_angle}'
         )
 
     def sel_reverse(self):
@@ -828,12 +842,14 @@ class CAM:
     # ─── 添加物件 ───
 
     def add_pad(self, x, y, symbol, pol='positive', attr='no',
-                angle=0, mir='no', nx=1, ny=1, dx=0, dy=0):
-        """添加 Pad"""
+                angle=0, mir='no', nx=1, ny=1, dx=0, dy=0,
+                xscale=1, yscale=1):
+        """添加 Pad — 与 genCOM_36 ADD_PAD 一致"""
         return self._io.COM(
-            f'add_pad,x={x},y={y},symbol={symbol},'
-            f'polarity={pol},attributes={attr},angle={angle},'
-            f'mirror={mir},nx={nx},ny={ny},dx={dx},dy={dy}'
+            f'add_pad, attributes = {attr}, x = {x}, y = {y},'
+            f' symbol = {symbol},polarity = {pol},'
+            f'angle = {angle}, mirror = {mir}, nx = {nx}, ny = {ny},'
+            f'dx = {dx}, dy = {dy}, xscale = {xscale}, yscale = {yscale}'
         )
 
     def add_text(self, x, y, text, x_size, y_size, attr='no',

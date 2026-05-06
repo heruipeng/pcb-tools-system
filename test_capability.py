@@ -300,9 +300,10 @@ def main():
             if sym in ('r100', 'r200'):
                 resize = PAD_SIZE / int(sym[1:])
                 result = cam._io.COM(
-                    f'add_pad,x={PAD_X},y={PAD_Y},symbol={sym},'
-                    f'polarity=positive,attributes=no,angle=0,'
-                    f'mirror=no,nx=1,ny=1,dx=0,dy=0,resize={resize}'
+                    f'add_pad, attributes = no, x = {PAD_X}, y = {PAD_Y},'
+                    f' symbol = {sym},polarity = positive,'
+                    f'angle = 0, mirror = no, nx = 1, ny = 1,'
+                    f'dx = 0, dy = 0, xscale = {resize}, yscale = {resize}'
                 )
                 print(f'  ✅ 符号={sym} resize={resize} 返回={result}')
             else:
