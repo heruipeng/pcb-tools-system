@@ -544,25 +544,35 @@ if __name__ == '__main__':
 
     elif '--job' in sys.argv and not is_inside_cam:
         # Gateway 模式：自动发现 PID
+        job = sys.argv[sys.argv.index('--job') + 1]
+
+        # 发现 Genesis/InCAMPro 进程 PID
+        gen_pids = []
         try:
             import psutil
+            target = 'get.exe' if IS_WINDOWS else 'get'
+            for p in psutil.process_iter(['pid', 'name']):
+                try:
+                    if p.info['name'] and target in p.info['name'].lower():
+                        gen_pids.append(p.info['pid'])
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
         except ImportError:
-            print('❌ 需要 psutil 库来自动发现进程')
-            print('   pip install psutil')
-            print('   或手动指定 PID: python cam_interface.py --pid <PID> --job <JOB>')
-            sys.exit(1)
-        job_idx = sys.argv.index('--job')
-        job = sys.argv[job_idx + 1]
-
-        # 自动发现 Genesis/InCAMPro 进程
-        gen_pids = []
-        target = 'get.exe' if IS_WINDOWS else 'get'
-        for p in psutil.process_iter(['pid', 'name']):
-            try:
-                if p.info['name'] and target in p.info['name'].lower():
-                    gen_pids.append(p.info['pid'])
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
+            # 不用 psutil，用系统命令
+            if IS_WINDOWS:
+                out = os.popen('tasklist /FI "IMAGENAME eq get.exe" /FO CSV').read()
+                for line in out.split('\n'):
+                    parts = line.replace('"','').split(',')
+                    if len(parts)>=2 and 'get.exe' in parts[0].lower():
+                        try: gen_pids.append(int(parts[1]))
+                        except: pass
+            else:
+                out = os.popen('ps -elf|grep get|grep -v grep').read()
+                for line in out.split('\n'):
+                    parts = line.split()
+                    if len(parts)>=4:
+                        try: gen_pids.append(int(parts[3]))
+                        except: pass
 
         if not gen_pids:
             print(f'❌ 未找到运行中的 {CAM_SOFTWARE} 进程')
