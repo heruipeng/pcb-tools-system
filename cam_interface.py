@@ -515,11 +515,11 @@ class CAM:
 
     def DO_INFO(self, args):
         """CAM 层 DO_INFO — 自动使用当前单位"""
-        return self.DO_INFO(args, units=self._units)
+        return self._io.DO_INFO(args, units=self._units)
 
     def INFO(self, args):
         """CAM 层 INFO — 自动使用当前单位"""
-        return self.INFO(args, units=self._units)
+        return self._io.INFO(args, units=self._units)
 
     def get_units(self):
         """获取当前单位"""
