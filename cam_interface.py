@@ -99,10 +99,9 @@ def _parse_info_lines(info_list):
         val = parts[1].strip()
 
         if val.startswith('(') and ')' in val:
-            # 数组: ('a' 'b' 'c')
-            inner = val[val.index('(') + 1:val.rindex(')')]
-            items = [s.strip("'") for s in re.split(r"'\\s*'|\\s+", inner)]
-            result[key] = [i for i in items if i]
+            # 数组: ('a' 'b' 'c') — 用 finditer 逐对抓取单引号内容
+            items = [m.group(1) for m in re.finditer(r"'([^']*)'", val)]
+            result[key] = items
         elif val.startswith("'") and val.endswith("'"):
             result[key] = val[1:-1]
         else:
