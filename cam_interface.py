@@ -278,11 +278,12 @@ class _GatewayCOM:
         连接到指定 PID 的 Genesis/InCAMPro 进程。
 
         Gateway 命令格式:  gateway.exe %PID@HOSTNAME
+        地址格式参考 Gateway.py 原版。
         """
-        self.pid_num = pid
-        self.pid_check_address = f'{self.user}@{self.host}'
-
-        # 构建 gateway.exe 路径
+        self.pid_num = str(pid)
+        self.address = f'%{pid}@{self.host}'
+        # PID 检查用地址: PID@HOST (不带 %)
+        self.pid_check_address = f'{pid}@{self.host}'
         edir = os.path.realpath(CAM_EDIR).rstrip('/get/get')
         gw_exe = os.path.join(edir, 'misc', 'gateway')
         if IS_WINDOWS:
