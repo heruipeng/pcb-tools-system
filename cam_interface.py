@@ -158,6 +158,8 @@ class _GatewayCOM:
         self.address = f'%{pid}@{self.host}'
         edir = os.path.realpath(CAM_EDIR).rstrip('/get/get')
         gw_exe = os.path.join(edir, 'misc', 'gateway')
+        if IS_WINDOWS:
+            gw_exe += '.exe'
 
         if not os.path.isfile(gw_exe):
             raise FileNotFoundError(f'Gateway not found: {gw_exe}')
