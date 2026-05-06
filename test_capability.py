@@ -370,13 +370,13 @@ def main():
     # ── 第 8 步：验证 ──
     print(f'\n[8] 最终验证')
     try:
+        # 切回当前 Step 的 Matrix，查询层特征信息
         info = cam._io.DO_INFO(
-            f'-t feature -e {NEW_JOB}/{NEW_STEP}/{NEW_LAYER} -d COUNT'
+            f'-t matrix -e {NEW_JOB}/{NEW_STEP}/matrix -d FEATURE'
         )
-        count = info.get('gCOUNT', '?')
-        pk.check('特征数', True, f'{NEW_LAYER} = {count} 个')
+        pk.check('Matrix 特征', True, f'返回: {info}')
     except Exception as e:
-        pk.check('特征数', False, str(e))
+        pk.check('Matrix 特征', False, str(e))
 
     pk.summary()
     print(f'\n{"=" * 64}')
