@@ -252,7 +252,7 @@ def main():
             pk.fatal('打开料号', False, str(e))
     else:
         try:
-            cam.new_job(NEW_JOB, customer='WukongAI', notes='poka-yoke test')
+            cam.new_job(NEW_JOB)
             cam.open_job(NEW_JOB)
             pk.check('创建 + 打开料号', True)
         except Exception as e:

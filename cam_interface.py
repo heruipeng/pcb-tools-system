@@ -547,12 +547,12 @@ class CAM:
 
     # ─── 资料/Job 操作 ───
 
-    def new_job(self, name, database='genesis', customer='', notes=''):
-        """创建新料号"""
+    def new_job(self, name, database='genesis'):
+        """创建新料号 — Genesis 使用 create_entity 命令"""
         self.job = name
         return self._io.COM(
-            f'new_job,name={name},db={database},'
-            f'customer={customer},notes={notes}'
+            f'create_entity,job=,is_fw=no,type=job,'
+            f'name={name},db={database},fw_type=form'
         )
 
     def open_job(self, job):
