@@ -1190,10 +1190,10 @@ if __name__ == '__main__':
         # 强制 Gateway 模式：自动发现 PID
         job = sys.argv[sys.argv.index('--job') + 1]
 
-        # ── PID 自动发现（快慢双路径）──
+        # ── PID 自动发现（三级加速：wmic > tasklist > /V）──
         gen_pids = []
+        t0 = time.time()
 
-        # 快路径: psutil (毫秒级)
         try:
             import psutil
             targets = (['get.exe', 'incampro.exe', 'incam.exe', 'genesis.exe']
@@ -1208,20 +1208,37 @@ if __name__ == '__main__':
                     pass
         except ImportError:
             if IS_WINDOWS:
-                # 快路径: tasklist 直接取 PID（约 0.3 秒，不用 /V）
+                # L1: wmic（最快，~0.1s）
                 for proc_name in ['get.exe', 'incampro.exe']:
-                    out = os.popen(
-                        f'tasklist /FI "IMAGENAME eq {proc_name}" /FO CSV'
-                    ).read()
-                    for line in out.split('\n'):
-                        parts = line.replace('"', '').split(',')
-                        if len(parts) >= 2 and proc_name in parts[0].lower():
-                            try:
-                                gen_pids.append(int(parts[1]))
-                            except ValueError:
-                                pass
+                    try:
+                        out = subprocess.check_output(
+                            ['wmic', 'process', 'where',
+                             f'name="{proc_name}"', 'get', 'ProcessId'],
+                            timeout=3, stderr=subprocess.DEVNULL
+                        ).decode('utf-8', errors='ignore')
+                        for line in out.split('\n'):
+                            pid_str = line.strip()
+                            if pid_str.isdigit():
+                                gen_pids.append(int(pid_str))
+                    except (subprocess.TimeoutExpired, FileNotFoundError,
+                            subprocess.CalledProcessError):
+                        pass
 
-                # 只有多实例时才用慢路径（/V 标题栏过滤，约 2-3 秒）
+                # L2: tasklist（后备，~0.5s）
+                if not gen_pids:
+                    for proc_name in ['get.exe', 'incampro.exe']:
+                        out = os.popen(
+                            f'tasklist /FI "IMAGENAME eq {proc_name}" /FO CSV'
+                        ).read()
+                        for line in out.split('\n'):
+                            parts = line.replace('"', '').split(',')
+                            if len(parts) >= 2 and proc_name in parts[0].lower():
+                                try:
+                                    gen_pids.append(int(parts[1]))
+                                except ValueError:
+                                    pass
+
+                # L3: 多实例时标题栏匹配用户（~3s，仅必要时）
                 if len(gen_pids) > 1:
                     current_user = getpass.getuser().lower()
                     matched = []
@@ -1252,12 +1269,23 @@ if __name__ == '__main__':
 
         pid = gen_pids[0]
         user = getpass.getuser()
-        print(f'🔗 Gateway 模式 → PID:{pid} (用户:{user}, '
-              f'共 {len(gen_pids)} 个进程)')
+        dt_pid = time.time() - t0
+        print(f'🔗 PID:{pid} (用户:{user}, 发现耗时:{dt_pid:.1f}s)')
+
+        t1 = time.time()
         cam = CAM(embedded=False, pid=pid, job=job)
-        print(f'   用户: {cam.get_user()}')
-        print(f'   料号列表: {cam._io.DO_INFO("-t root -m script -d JOBS_LIST")}')
+        dt_conn = time.time() - t1
+
+        t2 = time.time()
+        login_user = cam.get_user()
+        dt_cmd = time.time() - t2
+
+        print(f'   连接:{dt_conn:.1f}s  命令:{dt_cmd:.1f}s  登录用户:{login_user}')
         print(f'   料号: {job}')
+        t3 = time.time()
+        jobs = cam._io.DO_INFO('-t root -m script -d JOBS_LIST')
+        dt_info = time.time() - t3
+        print(f'   DO_INFO:{dt_info:.1f}s  {len(jobs.get("gJOBS_LIST",[]))}个料号')
 
     elif is_inside_cam:
         # 无参数 + GENESIS_TMP 存在 → 嵌入式模式
