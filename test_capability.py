@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Genesis 能力验证脚本 — 创建料号 → 层 → 添加 1000μm PAD
+Genesis 能力验证脚本 — 创建料号 → Step → 层 → 英制添加 PAD
 带完整防呆（Poka-Yoke）检查
 
 用法:
@@ -26,16 +26,15 @@ from cam_interface import CAM, _GatewayCOM, IS_WINDOWS
 NEW_JOB    = 'wukong_test_001'
 NEW_STEP   = 'step'
 NEW_LAYER  = 'sig_top'
-PAD_X      = 10        # 10mm (Genesis 坐标单位是 mm)
-PAD_Y      = 10        # 10mm
-PAD_SIZE   = 1000      # 1000μm = 1mm (symbol 单位是 μm)
+PAD_X      = 0.4        # inch (英制坐标)
+PAD_Y      = 0.4        # inch
+PAD_SIZE   = 40         # mil (英制符号大小, 40mil ≈ 1mm)
 
 SYMBOL_CANDIDATES = [
-    f'r{PAD_SIZE}',
-    f'r0.{PAD_SIZE}',
-    f'pad_{PAD_SIZE}',
+    f'r{PAD_SIZE}',       # r40
+    f'r{PAD_SIZE*25.4}',  # r1016 (μm 回退)
     'r100',
-    'r200',
+    'r39',
 ]
 
 CONNECT_TIMEOUT = 8  # Gateway 连接超时（秒）
@@ -139,7 +138,7 @@ def main():
     print('=' * 64)
     print('  Genesis 能力验证 — 防呆全流程')
     print(f'  Job: {NEW_JOB} | Step: {NEW_STEP} | Layer: {NEW_LAYER}')
-    print(f'  PAD: {PAD_SIZE}μm @ ({PAD_X}, {PAD_Y}) mm')
+    print(f'  PAD: {PAD_SIZE}mil @ ({PAD_X}, {PAD_Y}) inch')
     print('=' * 64)
 
     pk = PokaYoke()
@@ -326,9 +325,22 @@ def main():
     # ── 第 6 步：添加 PAD ──
     print(f'\n[6] 添加 {PAD_SIZE}μm PAD @ ({PAD_X},{PAD_Y})')
     pad_ok = False
+    # ── 第 6 步：切英制 + 添加 PAD ──
+    print(f'\n[6] 切换英制 (inch/mil) 添加 {PAD_SIZE}mil PAD @ ({PAD_X},{PAD_Y}) inch')
+
+    # 切到英制
+    try:
+        cam.change_units('inch')
+        current_units = cam.get_units()
+        pk.check('切换英制', current_units == 'inch', f'units={current_units}')
+    except Exception as e:
+        pk.fatal('切换英制', False, str(e))
+
+    pad_ok = False
     for i, sym in enumerate(SYMBOL_CANDIDATES):
         try:
-            if sym in ('r100', 'r200'):
+            if sym in ('r100', 'r39'):
+                # 回退符号 resize 到目标大小
                 resize = PAD_SIZE / int(sym[1:])
                 result = cam._io.COM(
                     f'add_pad, attributes = no, x = {PAD_X}, y = {PAD_Y},'
@@ -336,60 +348,27 @@ def main():
                     f'angle = 0, mirror = no, nx = 1, ny = 1,'
                     f'dx = 0, dy = 0, xscale = {resize}, yscale = {resize}'
                 )
-                print(f'  ✅ 符号={sym} resize={resize} 返回={result}')
+                print(f'  ✅ symbol={sym} resize={resize:.2f} 返回={result}')
             else:
                 result = cam.add_pad(PAD_X, PAD_Y, sym, pol='positive')
-                print(f'  ✅ 符号={sym} 返回={result}')
+                print(f'  ✅ symbol={sym} 返回={result}')
             pad_ok = True
             break
         except Exception as e:
-            print(f'  🔄 符号={sym} 不可用: {e}')
+            print(f'  🔄 symbol={sym} 不可用: {e}')
 
-    if not pad_ok:
-        print(f'  ⚠️  所有符号失败，尝试 add_circle 兜底...')
-        try:
-            result = cam._io.COM(
-                f'add_circle,x={PAD_X},y={PAD_Y},'
-                f'radius={PAD_SIZE/2},polarity=positive'
-            )
-            print(f'  ✅ add_circle 返回={result}')
-            pad_ok = True
-        except Exception:
-            pass
+    pk.check(f'添加 PAD (英制)', pad_ok)
 
-    pk.check('添加 PAD (公制)', pad_ok)
-
-    # ── 第 7 步：切换英制再添加 PAD ──
-    print(f'\n[7] 切换英制 (inch/mil) 添加 40mil PAD @ (0.5,0.5) inch')
-    try:
-        cam.change_units('inch')
-        pk.check('切换英制', True, 'units=inch')
-
-        # 英制: 坐标=inch, 符号大小=mil
-        result = cam._io.COM(
-            'add_pad, attributes = no, x = 0.5, y = 0.5,'
-            ' symbol = r40,polarity = positive,'
-            'angle = 0, mirror = no, nx = 1, ny = 1,'
-            'dx = 0, dy = 0, xscale = 1, yscale = 1'
-        )
-        pk.check('添加 PAD (英制)', True,
-                 f'x=0.5inch y=0.5inch symbol=r40 (40mil≈1mm) 返回={result}')
-
-        # 切回公制
-        cam.change_units('mm')
-    except Exception as e:
-        pk.check('英制测试', False, str(e))
-
-    # ── 第 8 步：保存 ──
-    print(f'\n[8] 保存')
+    # ── 第 7 步：保存 ──
+    print(f'\n[7] 保存')
     try:
         cam.save_job()
         pk.check('保存料号', True)
     except Exception as e:
         pk.check('保存料号', False, str(e))
 
-    # ── 第 9 步：验证 ──
-    print(f'\n[9] 最终验证')
+    # ── 第 8 步：验证 ──
+    print(f'\n[8] 最终验证')
     try:
         info = cam._io.DO_INFO(
             f'-t feature -e {NEW_JOB}/{NEW_STEP}/{NEW_LAYER} -d COUNT'
@@ -401,7 +380,7 @@ def main():
 
     pk.summary()
     print(f'\n{"=" * 64}')
-    print(f'  完成 — {NEW_JOB} / {NEW_STEP} / {NEW_LAYER} / {PAD_SIZE}μm PAD')
+    print(f'  完成 — {NEW_JOB} / {NEW_STEP} / {NEW_LAYER} / {PAD_SIZE}mil PAD (英制)')
     print(f'{"=" * 64}')
 
 
